@@ -2,19 +2,27 @@ name: Deploy README to GitHub Pages (official)
 
 on:
   push:
-    branches: [main]
+    branches: [ main ]
 
 permissions:
   contents: read
   pages: write
   id-token: write
 
+concurrency:
+  group: pages-deploy-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
+    outputs:
+      artifact-path: ${{ steps.upload.outputs.artifact-path || 'dist' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -26,11 +34,15 @@ jobs:
 
       - name: Build static site
         run: |
+          # fail early if README is missing
+          test -f README.md
           marked README.md -o index.html
           mkdir -p dist
           mv index.html dist/
+          ls -la dist
 
       - name: Upload artifact
+        id: upload
         uses: actions/upload-pages-artifact@v3
         with:
           path: dist
